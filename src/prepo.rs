@@ -1,5 +1,6 @@
 use nx::result::*;
 use nx::ipc::sf;
+use nx::fs;
 use nx::ipc::server;
 use nx::ipc::sf::sm;
 use nx::diag::log;
@@ -61,6 +62,17 @@ pub struct PrepoService<const S: u32> {
 
 impl<const S: u32> PrepoService<S> {
     fn process_report(&self, ctx: ReportContext) {
+        let mut idx = 1;
+        let mut msgpack_path = format!("sdmc:/prepo/{:#X}-{:#X}-{:?}.msgpack", ctx.process_id.unwrap_or(0), ctx.application_id.unwrap_or(0), ctx.kind);
+        while fs::get_entry_type(msgpack_path.clone()).is_ok() {
+            msgpack_path = format!("sdmc:/prepo/{:#X}-{:#X}-{:?}-{}.msgpack", ctx.process_id.unwrap_or(0), ctx.application_id.unwrap_or(0), ctx.kind, idx);
+            idx += 1;
+        }
+
+        if let Ok(mut msgpack_file) = fs::open_file(msgpack_path, fs::FileOpenOption::Create() | fs::FileOpenOption::Write() | fs::FileOpenOption::Append()) {
+            msgpack_file.write(ctx.report_msgpack_buf.buf, ctx.report_msgpack_buf.size).unwrap();
+        }
+
         diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "\nREPORT START\n");
 
         diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "Kind: {:?}\n", ctx.kind);
@@ -77,7 +89,6 @@ impl<const S: u32> PrepoService<S> {
             let user_name = "TODOUser";
             diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "User sending the report: {}\n", user_name);
         }
-        
 
         diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "REPORT END\n");
     }

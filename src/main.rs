@@ -11,6 +11,7 @@ extern crate paste;
 
 use nx::result::*;
 use nx::util;
+use nx::fs;
 use nx::thread;
 use nx::diag::assert;
 use nx::diag::log;
@@ -37,6 +38,10 @@ type Manager = server::ServerManager<POINTER_BUF_SIZE>;
 pub fn main() -> Result<()> {
     thread::get_current_thread().name.set_str("prepo-mitm.Main")?;
     diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "Hello there!\n");
+
+    fs::initialize()?;
+    fs::mount_sd_card("sdmc")?;
+
     let mut manager = Manager::new()?;
 
     // Services present in all versions so far
@@ -58,10 +63,11 @@ pub fn main() -> Result<()> {
     diag_log!(log::LmLogger { log::LogSeverity::Info, true } => "Looping...\n");
     manager.loop_process()?;
 
+    fs::finalize();
     Ok(())
 }
 
 #[panic_handler]
 fn panic_handler(info: &panic::PanicInfo) -> ! {
-    util::simple_panic_handler::<log::LmLogger>(info, assert::AssertMode::SvcBreak)
+    util::simple_panic_handler::<log::LmLogger>(info, assert::AssertLevel::SvcBreak())
 }
